@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>🎓 Student Finance Tracker (INR)</title>
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js for category chart -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root { --card: #ffffff; --bg: #0f172a; }
+    html, body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+    .glass { background: rgba(255,255,255,0.08); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.12); }
+    .shadow-soft { box-shadow: 0 10px 25px rgba(0,0,0,0.15); }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-900 text-slate-100">
+  <div class="max-w-6xl mx-auto p-6">
+    <!-- Header -->
+    <header class="flex flex-col sm:flex-row sm:items-end gap-3 sm:gap-6 mb-6">
+      <div class="flex-1">
+        <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight">🎓 Student Finance Tracker</h1>
+        <p class="text-slate-300 mt-1">Automated budgets & smart spending alerts — built for students in <span class="font-semibold">₹ INR</span>.</p>
+      </div>
+      <div class="flex items-center gap-2 text-sm text-slate-300">
+        <span id="monthLabel" class="px-2 py-1 rounded-md bg-slate-800/60 border border-slate-700"></span>
+        <button id="resetMonthBtn" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600">Reset Month</button>
+      </div>
+    </header>
+
+    <!-- Grid: Setup + Summary -->
+    <section class="grid md:grid-cols-3 gap-6">
+      <!-- Setup Card -->
+      <div class="md:col-span-1 glass rounded-3xl p-5 shadow-soft">
+        <h2 class="text-xl font-semibold mb-3">Start here</h2>
+        <form id="setupForm" class="space-y-3">
+          <div>
+            <label class="block text-sm text-slate-300 mb-1">Monthly Income (₹)</label>
+            <input id="incomeInput" type="number" min="0" step="0.01" placeholder="e.g., 12000" class="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 outline-none focus:ring-2 focus:ring-sky-500" required />
+          </div>
+          <div>
+            <label class="block text-sm text-slate-300 mb-1">Planned Budget (₹)</label>
+            <input id="budgetInput" type="number" min="0" step="0.01" placeholder="e.g., 8000" class="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 outline-none focus:ring-2 focus:ring-sky-500" required />
+          </div>
+          <div class="text-xs text-slate-300/90">Tip: Use <span class="font-semibold">50 / 30 / 20</span> helper to auto-allocate.</div>
+          <div class="grid grid-cols-3 gap-2">
+            <button type="button" id="helper50" class="rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 hover:bg-slate-700">50%</button>
+            <button type="button" id="helper30" class="rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 hover:bg-slate-700">30%</button>
+            <button type="button" id="helper20" class="rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 hover:bg-slate-700">20%</button>
+          </div>
+          <button class="w-full rounded-2xl bg-sky-500 hover:bg-sky-600 px-4 py-2 font-semibold">Save Setup</button>
+        </form>
+
+        <div class="mt-6 text-sm text-slate-300">
+          <label class="flex items-center gap-2"><input id="notifyToggle" type="checkbox" class="accent-sky-500"> Enable overspend alerts</label>
+          <label class="block mt-2">Alert threshold <span class="text-slate-400">(when remaining ≤ % of budget)</span></label>
+          <div class="flex items-center gap-2 mt-1">
+            <input id="thresholdInput" type="number" min="1" max="50" value="10" class="w-20 px-2 py-1 rounded-lg bg-slate-800 border border-slate-700">
+            <span class="text-slate-400">%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary Card -->
+      <div class="md:col-span-2 glass rounded-3xl p-5 shadow-soft">
+        <h2 class="text-xl font-semibold mb-3">Budget Summary</h2>
+        <div class="grid sm:grid-cols-3 gap-4">
+          <div class="rounded-2xl bg-slate-800/60 border border-slate-700 p-4">
+            <div class="text-slate-400 text-sm">Income</div>
+            <div id="incomeVal" class="text-xl font-bold mt-1">₹0</div>
+          </div>
+          <div class="rounded-2xl bg-slate-800/60 border border-slate-700 p-4">
+            <div class="text-slate-400 text-sm">Planned Budget</div>
+            <div id="budgetVal" class="text-xl font-bold mt-1">₹0</div>
+          </div>
+          <div class="rounded-2xl bg-slate-800/60 border border-slate-700 p-4">
+            <div class="text-slate-400 text-sm">Total Spent</div>
+            <div id="spentVal" class="text-xl font-bold mt-1">₹0</div>
+          </div>
+        </div>
+        <div class="mt-5">
+          <div class="flex justify-between text-sm text-slate-300 mb-1">
+            <span>Remaining</span>
+            <span id="remainingVal">₹0</span>
+          </div>
+          <div class="h-3 rounded-full bg-slate-800 border border-slate-700 overflow-hidden">
+            <div id="progressBar" class="h-3 bg-sky-500" style="width:0%"></div>
+          </div>
+          <p id="alertMsg" class="mt-2 text-sm font-semibold"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Add Expense + Table + Chart -->
+    <section class="grid lg:grid-cols-3 gap-6 mt-6">
+      <!-- Add Expense -->
+      <div class="glass rounded-3xl p-5 shadow-soft">
+        <h2 class="text-xl font-semibold mb-3">Add Expense</h2>
+        <form id="expenseForm" class="space-y-3">
+          <div>
+            <label class="block text-sm text-slate-300 mb-1">Amount (₹)</label>
+            <input id="amountInput" type="number" min="0" step="0.01" class="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 outline-none focus:ring-2 focus:ring-sky-500" required />
+          </div>
+          <div>
+            <label class="block text-sm text-slate-300 mb-1">Category</label>
+            <select id="categoryInput" class="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 outline-none focus:ring-2 focus:ring-sky-500">
+              <option>Food</option>
+              <option>Transport</option>
+              <option>Rent</option>
+              <option>Utilities</option>
+              <option>Study</option>
+              <option>Entertainment</option>
+              <option>Health</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm text-slate-300 mb-1">Note (optional)</label>
+            <input id="noteInput" type="text" placeholder="e.g., Canteen lunch" class="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700" />
+          </div>
+          <div>
+            <label class="block text-sm text-slate-300 mb-1">Date</label>
+            <input id="dateInput" type="date" class="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700" />
+          </div>
+          <button class="w-full rounded-2xl bg-emerald-500 hover:bg-emerald-600 px-4 py-2 font-semibold">Add</button>
+        </form>
+      </div>
+
+      <!-- Table -->
+      <div class="lg:col-span-2 glass rounded-3xl p-5 shadow-soft">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-xl font-semibold">Expenses</h2>
+          <div class="flex gap-2">
+            <input id="searchInput" placeholder="Search note/category…" class="px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-sm" />
+            <button id="exportBtn" class="px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-sm">Export CSV</button>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead>
+              <tr class="text-left text-slate-300">
+                <th class="py-2">Date</th>
+                <th class="py-2">Category</th>
+                <th class="py-2">Note</th>
+                <th class="py-2">Amount</th>
+                <th class="py-2 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Chart Card -->
+    <section class="grid md:grid-cols-2 gap-6 mt-6">
+      <div class="glass rounded-3xl p-5 shadow-soft">
+        <h2 class="text-xl font-semibold mb-3">Spending by Category</h2>
+        <canvas id="catChart" height="140"></canvas>
+      </div>
+      <div class="glass rounded-3xl p-5 shadow-soft">
+        <h2 class="text-xl font-semibold mb-3">Quick Tips</h2>
+        <ul class="list-disc pl-5 text-slate-300 text-sm space-y-2">
+          <li>Plan budget below income; aim for a buffer of 10–20%.</li>
+          <li>Use 50/30/20: Needs (50%), Wants (30%), Savings (20%).</li>
+          <li>Add expenses daily; small spends add up quickly.</li>
+          <li>Turn on alerts so you never get surprised at month-end.</li>
+        </ul>
+      </div>
+    </section>
+
+    <footer class="mt-10 text-center text-xs text-slate-500">Made for students • All amounts in INR (₹) • Data stored locally on your device</footer>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-4 left-1/2 -translate-x-1/2 hidden px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-100 shadow-soft"></div>
+
+  <script>
+    const fmtINR = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 });
+    const monthKey = () => {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; // YYYY-MM
+    };
+
+    // State
+    let state = { income: 0, budget: 0, expenses: [], notify: true, threshold: 10, month: monthKey() };
+
+    // Elements
+    const monthLabel = document.getElementById('monthLabel');
+    const incomeInput = document.getElementById('incomeInput');
+    const budgetInput = document.getElementById('budgetInput');
+    const setupForm = document.getElementById('setupForm');
+    const notifyToggle = document.getElementById('notifyToggle');
+    const thresholdInput = document.getElementById('thresholdInput');
+    const incomeVal = document.getElementById('incomeVal');
+    const budgetVal = document.getElementById('budgetVal');
+    const spentVal = document.getElementById('spentVal');
+    const remainingVal = document.getElementById('remainingVal');
+    const progressBar = document.getElementById('progressBar');
+    const alertMsg = document.getElementById('alertMsg');
+    const expenseForm = document.getElementById('expenseForm');
+    const amountInput = document.getElementById('amountInput');
+    const categoryInput = document.getElementById('categoryInput');
+    const noteInput = document.getElementById('noteInput');
+    const dateInput = document.getElementById('dateInput');
+    const tbody = document.getElementById('tbody');
+    const searchInput = document.getElementById('searchInput');
+    const exportBtn = document.getElementById('exportBtn');
+    const resetMonthBtn = document.getElementById('resetMonthBtn');
+    const toast = document.getElementById('toast');
+
+    // Chart
+    let chart;
+
+    function showToast(msg) {
+      toast.textContent = msg;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 2000);
+    }
+
+    function load() {
+      const saved = localStorage.getItem('student_finance_'+state.month);
+      if (saved) state = JSON.parse(saved);
+      else {
+        // If we have previous month data, start fresh but keep preferences
+        const keys = Object.keys(localStorage).filter(k => k.startsWith('student_finance_'));
+        if (keys.length) {
+          const prev = JSON.parse(localStorage.getItem(keys.sort().pop()));
+          state.notify = prev?.notify ?? true;
+          state.threshold = prev?.threshold ?? 10;
+        }
+        save();
+      }
+      monthLabel.textContent = new Date().toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+      incomeInput.value = state.income || '';
+      budgetInput.value = state.budget || '';
+      notifyToggle.checked = !!state.notify;
+      thresholdInput.value = state.threshold;
+      dateInput.valueAsNumber = Date.now() - (new Date()).getTimezoneOffset() * 60000; // today
+      render();
+    }
+
+    function save() {
+      localStorage.setItem('student_finance_'+state.month, JSON.stringify(state));
+    }
+
+    function totalSpent() { return state.expenses.reduce((s,e)=> s + Number(e.amount||0), 0); }
+
+    function updateSummary() {
+      const spent = totalSpent();
+      const remaining = Math.max(0, state.budget - spent);
+      incomeVal.textContent = fmtINR.format(state.income||0);
+      budgetVal.textContent = fmtINR.format(state.budget||0);
+      spentVal.textContent = fmtINR.format(spent);
+      remainingVal.textContent = fmtINR.format(state.budget - spent);
+      const pct = state.budget > 0 ? Math.min(100, (spent/state.budget)*100) : 0;
+      progressBar.style.width = pct + '%';
+
+      alertMsg.className = 'mt-2 text-sm font-semibold';
+      alertMsg.textContent = '';
+      if (state.budget > 0) {
+        const rem = state.budget - spent;
+        if (rem < 0) {
+          alertMsg.textContent = '🚨 You have exceeded your budget!';
+          alertMsg.classList.add('text-red-400');
+          if (state.notify) showToast('Budget exceeded!');
+        } else if (rem <= (state.budget * (state.threshold/100))) {
+          alertMsg.textContent = `⚠️ Warning: Only ${fmtINR.format(rem)} left in your budget.`;
+          alertMsg.classList.add('text-amber-300');
+          if (state.notify) showToast('Budget warning');
+        } else {
+          alertMsg.textContent = '✅ You are within your budget.';
+          alertMsg.classList.add('text-emerald-300');
+        }
+      }
+    }
+
+    function renderTable() {
+      const q = (searchInput.value||'').toLowerCase();
+      tbody.innerHTML = '';
+      state.expenses
+        .filter(e => !q || (e.category+" "+(e.note||'')).toLowerCase().includes(q))
+        .sort((a,b) => new Date(b.date) - new Date(a.date))
+        .forEach((e, idx) => {
+          const tr = document.createElement('tr');
+          tr.className = 'border-t border-slate-800';
+          tr.innerHTML = `
+            <td class="py-2">${new Date(e.date).toLocaleDateString('en-IN')}</td>
+            <td class="py-2">${e.category}</td>
+            <td class="py-2 text-slate-300">${e.note||''}</td>
+            <td class="py-2">${fmtINR.format(e.amount)}</td>
+            <td class="py-2 text-right"><button data-i="${idx}" class="del px-2 py-1 rounded-lg bg-slate-800 border border-slate-700">Delete</button></td>`;
+          tbody.appendChild(tr);
+        });
+      tbody.querySelectorAll('button.del').forEach(btn => btn.addEventListener('click', (ev) => {
+        const index = Number(ev.currentTarget.getAttribute('data-i'));
+        // Find the correct item in unsorted array by matching a tuple
+        const filtered = state.expenses
+          .sort((a,b) => new Date(b.date) - new Date(a.date))
+          .filter(e => !q || (e.category+" "+(e.note||'')).toLowerCase().includes(q));
+        const item = filtered[index];
+        const origIndex = state.expenses.findIndex(e => e === item);
+        if (origIndex > -1) state.expenses.splice(origIndex,1);
+        save();
+        render();
+        showToast('Expense deleted');
+      }));
+    }
+
+    function catTotals() {
+      const map = {};
+      state.expenses.forEach(e => { map[e.category] = (map[e.category]||0) + Number(e.amount||0); });
+      return map;
+    }
+
+    function renderChart() {
+      const data = catTotals();
+      const labels = Object.keys(data);
+      const values = Object.values(data);
+      const ctx = document.getElementById('catChart');
+      if (chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data: values }]},
+        options: {
+          plugins: {
+            legend: { labels: { color: '#cbd5e1' } },
+            tooltip: { callbacks: { label: (item) => `${item.label}: ${fmtINR.format(item.raw)}` } }
+          }
+        }
+      });
+    }
+
+    function render() {
+      updateSummary();
+      renderTable();
+      renderChart();
+    }
+
+    // Setup form
+    setupForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const inc = Number(incomeInput.value || 0);
+      const bud = Number(budgetInput.value || 0);
+      if (bud > inc) {
+        showToast('Heads up: Your budget exceeds income');
+      }
+      state.income = inc; state.budget = bud;
+      state.notify = notifyToggle.checked;
+      state.threshold = Math.min(50, Math.max(1, Number(thresholdInput.value||10)));
+      save();
+      render();
+      showToast('Setup saved');
+    });
+
+    // 50/30/20 helpers (fill budget as a % of income)
+    document.getElementById('helper50').onclick = () => budgetInput.value = Math.round((Number(incomeInput.value||0) * 0.5));
+    document.getElementById('helper30').onclick = () => budgetInput.value = Math.round((Number(incomeInput.value||0) * 0.3));
+    document.getElementById('helper20').onclick = () => budgetInput.value = Math.round((Number(incomeInput.value||0) * 0.2));
+
+    // Add expense form
+    expenseForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const amt = Number(amountInput.value || 0);
+      if (amt <= 0) { showToast('Enter a valid amount'); return; }
+      const exp = {
+        amount: amt,
+        category: categoryInput.value,
+        note: noteInput.value.trim(),
+        date: dateInput.value || new Date().toISOString().slice(0,10)
+      };
+      state.expenses.push(exp);
+      save();
+      expenseForm.reset();
+      dateInput.valueAsNumber = Date.now() - (new Date()).getTimezoneOffset() * 60000;
+      render();
+      showToast('Expense added');
+    });
+
+    // Search filter
+    searchInput.addEventListener('input', renderTable);
+
+    // Export CSV
+    exportBtn.addEventListener('click', () => {
+      const rows = [['Date','Category','Note','Amount (INR)'], ...state.expenses.map(e => [e.date, e.category, e.note||'', e.amount])];
+      const csv = rows.map(r => r.map(v => '"'+String(v).replaceAll('"','""')+'"').join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `expenses_${state.month}.csv`; a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // Reset month (clears only current month data)
+    resetMonthBtn.addEventListener('click', () => {
+      if (!confirm('Reset this month\'s data?')) return;
+      state = { income: 0, budget: 0, expenses: [], notify: state.notify, threshold: state.threshold, month: monthKey() };
+      save();
+      load();
+      showToast('Month reset');
+    });
+
+    // Auto month rollover
+    (function monthRollover(){
+      const nowKey = monthKey();
+      if (state.month !== nowKey) {
+        state.month = nowKey; state.expenses = []; state.income = 0; state.budget = 0; save();
+      }
+    })();
+
+    load();
+  </script>
+</body>
+</html>
